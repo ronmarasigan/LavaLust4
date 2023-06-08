@@ -3,11 +3,8 @@
 app/vendor/*
 
 runtime/*
+!runtime/.htaccess
 !runtime/index.html
-
-!app/*/.htaccess
-
-composer.lock
 
 # IDE Files
 #-------------------------
