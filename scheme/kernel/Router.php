@@ -26,6 +26,7 @@ class Router
     public function get($url, $callback)
     {
         $this->add_route($url, $callback, 'GET');
+        return $this;
     }
 
     /**
@@ -38,6 +39,7 @@ class Router
     public function post($url, $callback)
     {
         $this->add_route($url, $callback, 'POST');
+        return $this;
     }
 
     /**
@@ -50,6 +52,7 @@ class Router
     public function put($url, $callback)
     {
         $this->add_route($url, $callback, 'PUT');
+        return $this;
     }
 
     /**
@@ -62,6 +65,7 @@ class Router
     public function patch($url, $callback)
     {
         $this->add_route($url, $callback, 'PATCH');
+        return $this;
     }
 
     /**
@@ -74,6 +78,7 @@ class Router
     public function delete($url, $callback)
     {
         $this->add_route($url, $callback, 'DELETE');
+        return $this;
     }
 
     /**
@@ -87,6 +92,7 @@ class Router
     public function any($url, $callback, $methods)
     {
         $this->add_route($url, $callback, $methods);
+        return $this;
     }
 
     /**
@@ -114,17 +120,19 @@ class Router
      * @param string $method
      * @return void
      */
-    private function add_route($url, $callback, $method = 'GET')
+    private function add_route($url, $callback, $method = 'GET', $name = NULL)
     {
-
         $methods = explode('|', strtoupper($method));
         foreach ($methods as $method) {
-            $this->routes[] = [
+            $route = [
                 'url' => $this->group_prefix . $this->sanitize_url($url, '/'),
                 'callback' => $callback,
-                'method' => $method
+                'method' => $method,
+                'name' => $name,
             ];
+            $this->routes[] = $route;
         }
+        
     }
 
     /**
@@ -145,8 +153,8 @@ class Router
 
                     $callback = $route['callback'];
 
-                    if (is_string($callback) && strpos($callback, '@') !== false) {
-                        [$controller, $method] = explode('@', $callback);
+                    if (is_string($callback) && strpos($callback, '::') !== false) {
+                        [$controller, $method] = explode('::', $callback);
 
                         if ($this->is_valid_controller_and_method($controller, $method)) {
                             $this->call_controller_method($controller, $method, $matches);
@@ -197,7 +205,7 @@ class Router
         $controller_instance = new $controller();
 
         if ($this->is_method_accessible($controller_instance, $method)) {
-            call_user_func_array([$controller_instance, $method], $params);
+            call_user_func_array([$controller_instance, $method], array_values($params));
         } else {
             show_error('Runtime Error', 'Invalid method.');
         }
@@ -210,12 +218,9 @@ class Router
      * @param string $method
      * @return boolean
      */
-    private function is_method_accessible($object, $method)
+    private function is_method_accessible($controller, $method)
     {
-        $reflectionMethod = new ReflectionMethod($object, $method);
-
-        return $reflectionMethod->isPublic()
-            && $reflectionMethod->getDeclaringClass()->getName() === get_class($object);
+        return is_object($controller) && method_exists($controller, $method) && is_callable([$controller, $method]);
     }
 
     /**
@@ -226,10 +231,18 @@ class Router
      */
     private function convert_to_regex_pattern($url)
     {
-        $pattern = preg_replace('/\//', '\\/', $url);
-        $pattern = preg_replace('/\{([a-zA-Z0-9_]+)\}/', '(?P<$1>[a-zA-Z0-9_]+)', $pattern);
-        $pattern = '/^' . $pattern . '$/';
-        return $pattern;
+        $pattern = preg_replace_callback('/\(([^)]+)\)/', function($matches) {
+            $param = $matches[1];
+            if (strpos($param, ':num') === 0) {
+                return '(\d+)';
+            } elseif (strpos($param, ':any') === 0) {
+                return '([^/]+)';
+            } elseif (strpos($param, ':') === 0) {
+                return '(' . substr($param, 1) . ')';
+            }
+            return $param;
+        }, $url);
+        return '#^' . $pattern . '$#';
     }
 
     /**
@@ -246,6 +259,52 @@ class Router
         $url = filter_var($url, FILTER_SANITIZE_URL);
 
         return $url;
+    }
+
+    /**
+     * Set name of routes
+     *
+     * @param string $name
+     * @return void
+     */
+    public function name($name)
+    {
+        $last_route = end($this->routes);
+        $last_route['name'] = $name;
+        $this->routes[key($this->routes)] = $last_route;
+        return $this;
+    }
+
+    /**
+     * Get route by name
+     *
+     * @param string $name
+     * @return void
+     */
+    public function route_name($name)
+    {
+        foreach ($this->routes as $route) {
+            if ($route['name'] === $name) {
+                return $route;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Check if route exist
+     *
+     * @param string $name_of_url
+     * @return void
+     */
+    public function route_exists($name_of_url)
+    {
+        foreach ($this->routes as $route) {
+            if ($route['name'] === $name_of_url || $route['url'] === $name_of_url) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }

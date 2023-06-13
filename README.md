@@ -6,7 +6,8 @@
 
 ## Documentation
 
-[LavaLust Documentation Link](https://lavalust.netlify.app)
+[LavaLust Documentation Link 1](https://ronmarasigan.github.io/lavalust4-docs)
+[LavaLust Documentation Link 2](https://lavalust4.netlify.app)
 
 <p>
     Note: If you are using PLDT, you need to use google dns (8.8.8.8) to open the documentation website. There is

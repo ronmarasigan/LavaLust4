@@ -35,29 +35,6 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
  * @license https://opensource.org/licenses/MIT MIT License
  */
 
-if ( ! function_exists('redirect'))
-{
-	/**
-	 * Handle redirection function using header()
-	 *
-	 * @param string $uri
-	 * @param boolean $permanent
-	 * @return void
-	 */
-	function redirect($uri = '', $permanent = false)
-	{
-		if ( ! preg_match('#^(\w+:)?//#i', $uri))
-		{
-			$uri = site_url($uri);
-		}
-		if (headers_sent() === false)
-		{
-			header('Location: ' . $uri, true, ($permanent === true) ? 301 : 302);
-		}
-		exit();
-	}
-}
-
 if ( ! function_exists('load_js'))
 {
 	/**
@@ -168,6 +145,72 @@ if ( ! function_exists('segment'))
 		$parts = is_int($seg) ? explode('/', $_SERVER['REQUEST_URI']) : FALSE;
 	    return isset($parts[$seg]) ? $parts[$seg] : false;
 	}
+}
+
+/**
+ * Route url or route name
+ */
+if ( ! function_exists('route'))
+{
+	function route($name_or_url, $params = [])
+	{
+		global $router;
+
+		// Check if the argument is a route name or a route URL
+		if ($router->route_exists($name_or_url)) {
+			$route = $router->route_name($name_or_url);
+			$url = $route['url'];
+		} else {
+			$url = $name_or_url;
+		}
+
+		// Replace positional parameters in the URL with provided values
+		preg_match_all('/\(\:([a-zA-Z0-9_]+)\)/', $url, $matches);
+		$placeholders = $matches[0];
+		$paramsCount = count($placeholders);
+
+		for ($i = 0; $i < $paramsCount; $i++) {
+			$placeholder = $placeholders[$i];
+			$value = isset($params[$i]) ? $params[$i] : '';
+			$url = str_replace($placeholder, $value, $url);
+		}
+
+		// Check if the URL starts with a slash and add one if needed
+		if (strpos($url, '/') !== 0) {
+			$url = '/' . $url;
+		}
+
+		$url = ! empty(config_item('index_page')) ? config_item('index_page') . '' . $url : $url;
+
+		return base_url() . $url;
+	}
+}
+
+/**
+ * Redirect to route or any webpage
+ */
+if ( ! function_exists('redirect'))
+{
+	/**
+	 * Handle redirection function using header()
+	 *
+	 * @param string $uri
+	 * @param boolean $permanent
+	 * @return void
+	 */
+	function redirect($url = '', $params = [], $permanent = false)
+	{
+		if ( ! preg_match('#^(\w+:)?//#i', $url))
+		{
+			$url = route($url, $params);
+		}
+		if (headers_sent() === false)
+		{
+			header('Location: ' . $url, true, ($permanent === true) ? 301 : 302);
+		}
+		exit();
+	}
+
 }
 
 ?>
