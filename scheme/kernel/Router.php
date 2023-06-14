@@ -1,5 +1,43 @@
 <?php
+defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
+/**
+ * ------------------------------------------------------------------
+ * LavaLust - an opensource lightweight PHP MVC Framework
+ * ------------------------------------------------------------------
+ *
+ * MIT License
+ *
+ * Copyright (c) 2020 Ronald M. Marasigan
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *
+ * @package LavaLust
+ * @author Ronald M. Marasigan <ronald.marasigan@yahoo.com>
+ * @copyright Copyright 2020 (https://ronmarasigan.github.io)
+ * @since Version 1
+ * @link https://lavalust.pinoywap.org
+ * @license https://opensource.org/licenses/MIT MIT License
+ */
 
+/**
+ * Class Router
+ */
 class Router
 {
     /**
@@ -125,7 +163,7 @@ class Router
         $methods = explode('|', strtoupper($method));
         foreach ($methods as $method) {
             $route = [
-                'url' => $this->group_prefix . $this->sanitize_url($url, '/'),
+                'url' => $this->group_prefix . $this->sanitize_url($url),
                 'callback' => $callback,
                 'method' => $method,
                 'name' => $name,
@@ -144,8 +182,19 @@ class Router
      */
     public function initiate($url, $method)
     {
+        //check for invalid chars
+        $url_segments = explode('/', $url);
+        array_shift($url_segments);
+        foreach($url_segments as $uri)
+        {
+            if (! preg_match('/^['.config_item('permitted_uri_chars').']+$/i', $uri))
+            {
+                show_error('400 Bad Request', 'The URI you submitted has disallowed characters.', 'error_general', 400);
+            }
+        }
         foreach ($this->routes as $route) {
             if (strtoupper($route['method']) === strtoupper($method)) {
+                //Regex
                 $pattern = $this->convert_to_regex_pattern($route['url']);
 
                 if (preg_match($pattern, $url, $matches)) {
@@ -164,7 +213,7 @@ class Router
                     } elseif (is_callable($callback)) {
                         call_user_func_array($callback,  array_values($matches));
                     } else {
-                        show_error('Runtime Error', 'Invalid callback for route: ' . $route);
+                        show_error('Runtime Error', 'Invalid callback for route: ' . $route['url']);
                     }
                     return;
                 }
