@@ -120,14 +120,14 @@ class Router
     }
 
     /**
-     * Any Method
+     * Match any method
      *
      * @param string $url
      * @param mixed $callback
      * @param string $methods
      * @return void
      */
-    public function any($url, $callback, $methods)
+    public function match($url, $callback, $methods)
     {
         $this->add_route($url, $callback, $methods);
         return $this;
@@ -205,40 +205,23 @@ class Router
                     if (is_string($callback) && strpos($callback, '::') !== false) {
                         [$controller, $method] = explode('::', $callback);
 
-                        if ($this->is_valid_controller_and_method($controller, $method)) {
+                        $app = APP_DIR .'controllers/'. ucfirst($controller) . '.php';
+                        if(file_exists($app)){
+                            require_once($app);
                             $this->call_controller_method($controller, $method, $matches);
                         } else {
-                            show_error('Runtime Error', 'Invalid controller or method.');
+                            show_error('Runtime Error', 'Controller file did not exist.');
                         }
                     } elseif (is_callable($callback)) {
                         call_user_func_array($callback,  array_values($matches));
                     } else {
-                        show_error('Runtime Error', 'Invalid callback for route: ' . $route['url']);
+                        show_error('Runtime Error', 'Invalid callback.');
                     }
                     return;
                 }
             }
         }
         empty(config_item('404_override')) ? show_404() : show_404('Route Not Found', "Route not found: $url", config_item('404_override'));
-    }
-
-    /**
-     * Check if Controller and Method is Valid
-     *
-     * @param string $controller
-     * @param string $method
-     * @return boolean
-     */
-    private function is_valid_controller_and_method($controller, $method)
-    {
-        $valid_controller = preg_match('/^[a-zA-Z0-9_\\\\]+$/', $controller);
-        $valid_method = preg_match('/^[a-zA-Z0-9_]+$/', $method);
-        $app = APP_DIR .'controllers/'. ucfirst($controller) . '.php';
-        if(file_exists($app)){
-            require_once($app);
-            return $valid_controller && $valid_method && class_exists($controller) && method_exists($controller, $method);
-        }
-
     }
 
     /**
@@ -256,7 +239,7 @@ class Router
         if ($this->is_method_accessible($controller_instance, $method)) {
             call_user_func_array([$controller_instance, $method], array_values($params));
         } else {
-            show_error('Runtime Error', 'Invalid method.');
+            show_error('Runtime Error', 'Method is inaccessible.');
         }
     }
 
@@ -358,4 +341,3 @@ class Router
 
 }
 ?>
-

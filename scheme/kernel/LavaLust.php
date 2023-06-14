@@ -149,6 +149,6 @@ $performance->tag('lavalust');
 
 // Handle the request
 $url = $router->sanitize_url(str_replace($_SERVER['SCRIPT_NAME'], '', $_SERVER['PHP_SELF']));
-$method = $router->sanitize_url($_SERVER['REQUEST_METHOD']);
+$method = isset($_SERVER['REQUEST_METHOD']) ? strtoupper($_SERVER['REQUEST_METHOD']) : '';
 $router->initiate($url, $method);
 ?>
