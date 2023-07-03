@@ -69,21 +69,6 @@ if ( ! function_exists('load_css'))
 	}
 }
 
-if ( ! function_exists('site_url'))
-{
-	/**
-	 * Get the site url
-	 *
-	 * @param string $url
-	 * @return void
-	 */
-	function site_url($url = '') 
-	{
-		$base_url = filter_var(BASE_URL, FILTER_SANITIZE_URL);
-		return ! empty(config_item('index_page')) ? $base_url . config_item('index_page').'/' . $url : $base_url . $url;
-	}
-}
-
 if ( ! function_exists('base_url'))
 {
 	/**
@@ -182,7 +167,7 @@ if ( ! function_exists('route'))
 
 		$url = ! empty(config_item('index_page')) ? config_item('index_page') . '' . $url : $url;
 
-		return base_url() . $url;
+		return rtrim(base_url(), '/') . $url;
 	}
 }
 

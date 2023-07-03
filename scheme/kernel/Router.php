@@ -160,6 +160,10 @@ class Router
      */
     private function add_route($url, $callback, $method = 'GET', $name = NULL)
     {
+        // Check if the URL starts with a slash and add one if needed
+		if (strpos($url, '/') !== 0) {
+			$url = '/' . $url;
+		}
         $methods = explode('|', strtoupper($method));
         foreach ($methods as $method) {
             $route = [
