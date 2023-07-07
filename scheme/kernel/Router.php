@@ -164,6 +164,7 @@ class Router
 		if (strpos($url, '/') !== 0) {
 			$url = '/' . $url;
 		}
+        
         $methods = explode('|', strtoupper($method));
         foreach ($methods as $method) {
             $route = [
@@ -200,7 +201,7 @@ class Router
             if (strtoupper($route['method']) === strtoupper($method)) {
                 //Regex
                 $pattern = $this->convert_to_regex_pattern($route['url']);
-
+                
                 if (preg_match($pattern, $url, $matches)) {
                     array_shift($matches); // Remove the first element (full match)
 
@@ -214,18 +215,18 @@ class Router
                             require_once($app);
                             $this->call_controller_method($controller, $method, $matches);
                         } else {
-                            show_error('Runtime Error', 'Controller file did not exist.');
+                            throw new RuntimeException('Controller file did not exist.');
                         }
                     } elseif (is_callable($callback)) {
                         call_user_func_array($callback,  array_values($matches));
                     } else {
-                        show_error('Runtime Error', 'Invalid callback.');
+                        throw new RuntimeException('Invalid callback.');
                     }
                     return;
                 }
             }
         }
-        empty(config_item('404_override')) ? show_404() : show_404('Route Not Found', "Route not found: $url", config_item('404_override'));
+        show_404();
     }
 
     /**
@@ -243,7 +244,7 @@ class Router
         if ($this->is_method_accessible($controller_instance, $method)) {
             call_user_func_array([$controller_instance, $method], array_values($params));
         } else {
-            show_error('Runtime Error', 'Method is inaccessible.');
+            throw new RuntimeException('Method is inaccessible.');
         }
     }
 
