@@ -226,7 +226,7 @@ class Router
                 }
             }
         }
-        show_404();
+        empty(config_item('404_override')) ? show_404() : show_404('Route Not Found', "Route not found: $url", config_item('404_override'));
     }
 
     /**
