@@ -142,6 +142,10 @@ class Router
      */
     public function group($prefix, $callback)
     {
+        // Check if the URL starts with a slash and add one if needed
+        if (strpos($prefix, '/') !== 0) {
+			$prefix = '/' . $prefix;
+		}
         $previous_group_prefix = $this->group_prefix;
         $this->group_prefix .= $prefix;
 
