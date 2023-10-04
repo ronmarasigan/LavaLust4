@@ -169,7 +169,12 @@ class Router
 			$url = '/' . $url;
 		}
         
-        $methods = explode('|', strtoupper($method));
+        if(is_string($method)) {
+            $methods = explode('|', strtoupper($method));
+        } else {
+            $methods = $method;
+        }
+        
         foreach ($methods as $method) {
             $route = [
                 'url' => $this->group_prefix . $this->sanitize_url($url),
@@ -203,23 +208,27 @@ class Router
         }
         foreach ($this->routes as $route) {
             if (strtoupper($route['method']) === strtoupper($method)) {
+                
                 //Regex
                 $pattern = $this->convert_to_regex_pattern($route['url']);
-                
+
                 if (preg_match($pattern, $url, $matches)) {
                     array_shift($matches); // Remove the first element (full match)
 
                     $callback = $route['callback'];
 
-                    if (is_string($callback) && strpos($callback, '::') !== false) {
-                        [$controller, $method] = explode('::', $callback);
-
+                    if (is_string($callback)) {
+                        if(strpos($callback, '::') !== false) {
+                            [$controller, $method] = explode('::', $callback);
+                        } else {
+                            [$controller, $method] = [$callback, 'index'];                           
+                        }
                         $app = APP_DIR .'controllers/'. ucfirst($controller) . '.php';
                         if(file_exists($app)){
                             require_once($app);
                             $this->call_controller_method($controller, $method, $matches);
                         } else {
-                            throw new RuntimeException('Controller file did not exist.');
+                            show_error('Runtime Error', 'Controller file did not exist.');
                         }
                     } elseif (is_callable($callback)) {
                         call_user_func_array($callback,  array_values($matches));
@@ -278,6 +287,10 @@ class Router
                 return '(\d+)';
             } elseif (strpos($param, ':any') === 0) {
                 return '([^/]+)';
+            } elseif (strpos($param, ':alpha') === 0) {
+                return '([a-zA-Z]+)';
+            } elseif (strpos($param, ':alphanum') === 0) {
+                return '([a-zA-Z0-9]+)';
             } elseif (strpos($param, ':') === 0) {
                 return '(' . substr($param, 1) . ')';
             }
