@@ -55,6 +55,13 @@ class Router
     private $group_prefix = '';
 
     /**
+     * Route Constraints
+     *
+     * @var array
+     */
+    private $route_constraints = [];
+
+    /**
      * GET Method
      *
      * @param string $url
@@ -181,10 +188,138 @@ class Router
                 'callback' => $callback,
                 'method' => $method,
                 'name' => $name,
+                'constraints' => [],
             ];
             $this->routes[] = $route;
         }
         
+    }
+
+    /**
+     * Where (Regex)
+     *
+     * @param mixed $param
+     * @param regex $pattern
+     * @return void
+     */
+    public function where($param, $pattern)
+    {
+        $lastRoute = end($this->routes);
+
+        if ($lastRoute) {
+            $lastRoute['constraints'][$param] = $pattern;
+            $this->routes[key($this->routes)] = $lastRoute; // Update the last route in the array
+        }
+
+        return $this;
+    }
+
+    /**
+     * Alpha
+     *
+     * @param mixed $param
+     * @return void
+     */
+    public function where_alpha($param)
+    {
+        return $this->where($param, '[a-zA-Z]+');
+    }
+
+    /**
+     * Alphanumeric
+     *
+     * @param mixed $param
+     * @return void
+     */
+    public function where_alphanumeric($param)
+    {
+        return $this->where($param, '[a-zA-Z0-9]+');
+    }
+
+    /**
+     * Uuid
+     *
+     * @param mixed $param
+     * @return void
+     */
+    public function where_uuid($param)
+    {
+        return $this->where($param, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}');
+    }
+
+    /**
+     * Uliad
+     *
+     * @param mixed $param
+     * @return void
+     */
+    public function where_ulid($param)
+    {
+        return $this->where($param, '[0-9A-HJ-NP-Za-km-z]{26}');
+    }
+
+    /**
+     * In
+     *
+     * @param  $param
+     * @param [type] $values
+     * @return void
+     */
+    public function where_in($param, $values)
+    {
+        $pattern = '(' . implode('|', array_map('preg_quote', $values)) . ')';
+        return $this->where($param, $pattern);
+    }
+
+    /**
+     * URL Matches
+     *
+     * @param string $url
+     * @param string $route
+     * @return void
+     */
+    private function url_matches_route($url, $route)
+    {
+        $pattern = $this->convert_to_regex_pattern($route['url'], $route['constraints']);
+        return preg_match($pattern, $url);
+    }
+
+    /**
+     * Execute Callback
+     *
+     * @param string $url
+     * @param string $route
+     * @return void
+     */
+    private function execute_callback($url, $route)
+    {
+        $matches = [];
+        if(preg_match($this->convert_to_regex_pattern($route['url'], $route['constraints']), $url, $matches))
+        {
+            array_shift($matches); // Remove the first element (full match)
+
+            $callback = $route['callback'];
+
+            if (is_string($callback)) {
+                if(strpos($callback, '::') !== false) {
+                    [$controller, $method] = explode('::', $callback);
+                } else {
+                    [$controller, $method] = [$callback, 'index'];                           
+                }
+                $app = APP_DIR .'controllers/'. ucfirst($controller) . '.php';
+                if(file_exists($app)){
+                    require_once($app);
+                    $this->call_controller_method($controller, $method, $matches);
+                } else {
+                    show_error('Runtime Error', 'Controller file did not exist.');
+                }
+            } elseif (is_callable($callback)) {
+                call_user_func_array($callback,  array_values($matches));
+            } else {
+                throw new RuntimeException('Invalid callback.');
+            }
+            return;
+        }
     }
 
     /**
@@ -207,36 +342,9 @@ class Router
             }
         }
         foreach ($this->routes as $route) {
-            if (strtoupper($route['method']) === strtoupper($method)) {
-                
-                //Regex
-                $pattern = $this->convert_to_regex_pattern($route['url']);
-
-                if (preg_match($pattern, $url, $matches)) {
-                    array_shift($matches); // Remove the first element (full match)
-
-                    $callback = $route['callback'];
-
-                    if (is_string($callback)) {
-                        if(strpos($callback, '::') !== false) {
-                            [$controller, $method] = explode('::', $callback);
-                        } else {
-                            [$controller, $method] = [$callback, 'index'];                           
-                        }
-                        $app = APP_DIR .'controllers/'. ucfirst($controller) . '.php';
-                        if(file_exists($app)){
-                            require_once($app);
-                            $this->call_controller_method($controller, $method, $matches);
-                        } else {
-                            show_error('Runtime Error', 'Controller file did not exist.');
-                        }
-                    } elseif (is_callable($callback)) {
-                        call_user_func_array($callback,  array_values($matches));
-                    } else {
-                        throw new RuntimeException('Invalid callback.');
-                    }
-                    return;
-                }
+            if (strtoupper($route['method']) === strtoupper($method) && $this->url_matches_route($url, $route)) {
+                $this->execute_callback($url, $route);
+                return;
             }
         }
         empty(config_item('404_override')) ? show_404() : show_404('Route Not Found', "Route not found: $url", config_item('404_override'));
@@ -279,22 +387,14 @@ class Router
      * @param string $url
      * @return void
      */
-    private function convert_to_regex_pattern($url)
+    private function convert_to_regex_pattern($url, $constraints)
     {
-        $pattern = preg_replace_callback('/\(([^)]+)\)/', function($matches) {
+        $pattern = preg_replace_callback('/\{([^\/]+)\}/', function ($matches) use ($constraints) {
             $param = $matches[1];
-            if (strpos($param, ':num') === 0) {
-                return '(\d+)';
-            } elseif (strpos($param, ':any') === 0) {
-                return '([^/]+)';
-            } elseif (strpos($param, ':alpha') === 0) {
-                return '([a-zA-Z]+)';
-            } elseif (strpos($param, ':alphanum') === 0) {
-                return '([a-zA-Z0-9]+)';
-            } elseif (strpos($param, ':') === 0) {
-                return '(' . substr($param, 1) . ')';
+            if (isset($constraints[$param])) {
+                return '(' . $constraints[$param] . ')';
             }
-            return $param;
+            return '([^\/]+)';
         }, $url);
         return '#^' . $pattern . '$#';
     }
