@@ -297,7 +297,7 @@ Class Io {
 	}
 	
 	/**
-	 * Is Ajax
+	 * Is Ajax Request
 	 * 
 	 * @return boolean Check if Request is AJAX
 	 */
